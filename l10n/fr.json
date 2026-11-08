@@ -258,7 +258,9 @@
     "Framing": "Question",
     "Debate": "Débat",
     "Result": "Résultat",
-    "Yes. Connect an existing Deferendum account from a compatible public HTTPS Nextcloud instance. Choose your groups and permissions explicitly. Installation alone never grants access to a group.": "Oui. Connectez un compte Deferendum existant depuis une instance Nextcloud compatible en HTTPS public. Choisissez explicitement vos groupes et autorisations. L’installation seule ne donne jamais accès à un groupe."
+    "Yes. Connect an existing Deferendum account from a compatible public HTTPS Nextcloud instance. Choose your groups and permissions explicitly. Installation alone never grants access to a group.": "Oui. Connectez un compte Deferendum existant depuis une instance Nextcloud compatible en HTTPS public. Choisissez explicitement vos groupes et autorisations. L’installation seule ne donne jamais accès à un groupe.",
+    "Implementation": "Mise en œuvre",
+    "Current stage": "Étape actuelle"
   },
   "pluralForm": "nplurals=2; plural=(n > 1);"
 }

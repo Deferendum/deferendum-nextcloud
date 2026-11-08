@@ -258,7 +258,9 @@
     "Framing": "Formulare",
     "Debate": "Dezbatere",
     "Result": "Rezultat",
-    "Yes. Connect an existing Deferendum account from a compatible public HTTPS Nextcloud instance. Choose your groups and permissions explicitly. Installation alone never grants access to a group.": "Da. Conectează un cont Deferendum existent de pe o instanță Nextcloud compatibilă, cu HTTPS public. Alege explicit grupurile și permisiunile. Instalarea singură nu oferă acces la un grup."
+    "Yes. Connect an existing Deferendum account from a compatible public HTTPS Nextcloud instance. Choose your groups and permissions explicitly. Installation alone never grants access to a group.": "Da. Conectează un cont Deferendum existent de pe o instanță Nextcloud compatibilă, cu HTTPS public. Alege explicit grupurile și permisiunile. Instalarea singură nu oferă acces la un grup.",
+    "Implementation": "Implementare",
+    "Current stage": "Etapa curentă"
   },
   "pluralForm": "nplurals=3; plural=(n == 1 ? 0 : ((n == 0 || (n % 100 > 0 && n % 100 < 20)) ? 1 : 2));"
 }
