@@ -82,7 +82,31 @@
             else operationStatus(reason('outcome_unknown'));
         }finally{busy=false;locks();}
     };
-    const section=title=>{const s=node('section');s.className='deferendum-detail';if(['Governing rules','Question wording'].includes(title)&&['voting','closed'].includes(context.question?.phase)){const d=ux.disclosure(tr(title),s,title==='Governing rules'?'shield':'framing');pane.append(d);}else{s.append(node('h2',tr(title)));pane.append(s);}return s;};
+    const roomId = room => 'deferendum-room-' + room;
+    const room = name => document.getElementById(roomId(name));
+    const visitRoom = id => {
+        const target = document.getElementById(id);
+        if (!target) return false;
+        if (target.tagName === 'DETAILS') target.open = true;
+        const focusTarget = target.querySelector('h2, h3, summary');
+        focusTarget?.focus();
+        return focusTarget != null;
+    };
+    const section = (title, name) => {
+        const area = node('section');
+        area.className = 'deferendum-detail';
+        let container = area;
+        if (['Governing rules', 'Question wording'].includes(title) && ['voting', 'closed'].includes(context.question?.phase)) {
+            container = ux.disclosure(tr(title), area, title === 'Governing rules' ? 'shield' : 'framing');
+        } else {
+            const heading = node('h2', tr(title));
+            heading.tabIndex = -1;
+            area.append(heading);
+        }
+        container.id = roomId(name);
+        pane.append(container);
+        return area;
+    };
     const text=(parent,label,value)=>{const row=node('p');row.className='deferendum-data-row';row.append(node('span',tr(label)),node('span',value===null||value===undefined?tr('Not recorded'):String(value)));parent.append(row);};
     const allowed=command=>context.capabilities.commands.includes(command)&&connection?.scopes.includes('deferendum:nextcloud:participate');
     const button=(parent,command,label,payload)=>{if(!allowed(command))return;const b=node('button');b.append(ux.icon(command==='argument.react'?'heart':'check'),node('span',tr(label)));b.dataset.command=command;b.addEventListener('click',()=>submit(command,payload,tr(label)));parent.append(b);};
@@ -94,13 +118,13 @@
     };
     const form=(parent,command,label,build)=>{if(!allowed(command))return;const f=node('form');f.className='deferendum-action-form';const payload=build(f);const b=node('button',tr(label));b.type='submit';b.dataset.command=command;f.append(b);f.addEventListener('submit',event=>{event.preventDefault();try{const value=payload();submit(command,value,tr(label));}catch{operationStatus(tr('Check the entered values.'));}});const d=ux.disclosure(tr(label),f,'plus');d.classList.add('deferendum-form-disclosure');if(command.endsWith('.vote'))d.open=true;parent.append(d);};
     const issues=()=>{
-        if(!context.issues)return;const area=section('Concerns');
+        if(!context.issues)return;const area=section('Concerns', 'concerns');
         form(area,'issue.create','Add concern',f=>{const title=field(f,'Concern title'),direction=field(f,'Suggested direction'),link=field(f,'Supporting link','url');title.required=true;title.minLength=8;title.maxLength=10000;direction.maxLength=10000;return()=>({title:title.value,...(direction.value?{direction:direction.value}:{}),...(link.value?{supportingLink:link.value}:{})});});
-        for(const item of context.issues){const box=node('article');box.append(node('h3',item.title),node('p',item.body));text(box,'Saved status',tr(item.status));text(box,'Urgency',item.urgency);text(box,'Rating count',item.ratingCount);text(box,'Your rating',item.myRating);if(item.direction)text(box,'Suggested direction',item.direction);
+        for(const item of context.issues){const box=node('article'),heading=node('h3',item.title);box.id=roomId('concern-'+item.id);heading.tabIndex=-1;box.append(heading,node('p',item.body));text(box,'Saved status',tr(item.status));text(box,'Urgency',item.urgency);text(box,'Rating count',item.ratingCount);text(box,'Your rating',item.myRating);if(item.direction)text(box,'Suggested direction',item.direction);
             if(['open','queued','qualified'].includes(item.status))form(box,'issue.rate','Rate concern',f=>{const rating=field(f,'Your rating','select',Array.from({length:6},(_,i)=>({value:i+1,label:String(i+1)})));if(item.myRating)rating.value=String(item.myRating);return()=>({issueId:item.id,rating:Number(rating.value)});});area.append(box);}
     };
     const discussion=()=>{
-        if(!context.arguments)return;const area=section('Arguments and comments');area.append(node('p',tr('Likes and dislikes are reactions, not votes or consensus. Comments have no reaction score.')));
+        if(!context.arguments)return;const area=section('Arguments and comments', 'discussion');area.append(node('p',tr('Likes and dislikes are reactions, not votes or consensus. Comments have no reaction score.')));
         form(area,'argument.create','Add argument',f=>{const side=field(f,'Position','select',[{value:'for',label:'For'},{value:'against',label:'Against'}]),body=field(f,'Argument');body.required=true;body.maxLength=200;return()=>({decisionId:context.question.id,side:side.value,body:body.value});});
         for(const argument of context.arguments){const box=node('article');box.append(node('h3',tr(argument.side==='for'?'For':'Against')),node('p',argument.contentHidden||argument.personallyBlocked?tr('Content unavailable under current visibility rules.'):argument.body));text(box,'Likes',argument.likes);text(box,'Dislikes',argument.dislikes);text(box,'Your reaction',argument.myReaction?tr(argument.myReaction):null);
             if(!argument.contentHidden&&!argument.personallyBlocked){for(const reaction of ['like','dislike',null])button(box,'argument.react',reaction==='like'?'Like':reaction==='dislike'?'Dislike':'Remove reaction',{decisionId:context.question.id,argumentId:argument.id,reaction});
@@ -110,7 +134,7 @@
             area.append(box);}
     };
     const wordings=()=>{
-        if(!context.versions||!context.question)return;const area=section('Question wording');
+        if(!context.versions||!context.question)return;const area=section('Question wording', 'wording');
         text(area,'Saved phase',tr(context.question.phase));text(area,'Deadline',context.question.phaseEndsAt);text(area,'Support target',context.question.supportTarget);
         for(const version of context.versions){const box=node('article');text(box,'Wording version',version.versionNumber);box.append(node('p',version.wording));if(version.changeNote)text(box,'Reason for change',version.changeNote);text(box,'Saved status',tr(version.status));text(box,'Support count',version.supportCount);text(box,'Your support',tr(version.supportedByMe?'Yes':'No'));
             const isFraming=context.question.phase==='framing',command=isFraming?'framing.support':'wording.support',payload={versionId:version.id,supported:!version.supportedByMe,...(isFraming?{expectedQuestionId:context.question.id}:{decisionId:context.question.id})};if(isFraming || (context.question.phase==='debate'&&version.status==='proposed'&&version.claims.length))button(box,command,version.supportedByMe?'Withdraw wording support':'Support wording',payload);for(const claim of version.claims)text(box,'Accommodation',tr(claim.status));area.append(box);}
@@ -118,23 +142,97 @@
         else if(context.question.canProposeRevision)form(area,'wording.propose','Propose revised wording',f=>{const wording=field(f,'Proposed wording'),change=field(f,'Reason for change');wording.required=true;wording.minLength=8;wording.maxLength=10000;change.required=true;change.minLength=8;change.maxLength=1000;const list=node('fieldset');list.append(node('legend',tr('Arguments addressed')));const boxes=[];for(const argument of context.arguments||[]){if(argument.contentHidden||argument.personallyBlocked)continue;const label=node('label',argument.body),input=node('input');input.type='checkbox';label.prepend(input);list.append(label);boxes.push({id:argument.id,input});}f.append(list);return()=>({decisionId:context.question.id,wording:wording.value,changeNote:change.value,argumentIds:boxes.filter(x=>x.input.checked).map(x=>x.id)});});
     };
     const governance=()=>{
-        if(!context.governance)return;const area=section('Governing rules');text(area,'Rules version',context.governance.version);
+        if(!context.governance)return;const area=section('Governing rules', 'rules');text(area,'Rules version',context.governance.version);
         for(const rule of context.governance.rules){const box=node('article');box.append(node('h3',rule.label),node('p',rule.description));text(box,'Current value',rule.currentLabel);form(box,'governance.propose','Propose rule change',f=>{const option=field(f,'Proposed value','select',rule.options.map((x,index)=>({value:index,label:x.label}))),rationale=field(f,'Rationale');rationale.required=true;rationale.minLength=20;rationale.maxLength=2000;return()=>({ruleKey:rule.key,proposedValue:rule.options[Number(option.value)].value,rationale:rationale.value});});area.append(box);}
         for(const amendment of context.governance.amendments){const box=node('article');box.append(node('h3',amendment.ruleLabel));text(box,'Previous value',amendment.previousLabel);text(box,'Proposed value',amendment.proposedLabel);text(box,'Rationale',amendment.rationale);text(box,'Saved phase',amendment.phase?tr(amendment.phase):null);text(box,'Current wording',amendment.wording);text(box,'Your vote',amendment.myVote?tr(amendment.myVote):null);
             const open=node('button',tr('Read decision workspace'));open.addEventListener('click',()=>read({groupId:selected.groupId,decisionId:amendment.questionId}));box.append(open);area.append(box);}
     };
     const ballot=()=>{
-        if(!context.vote||!context.question)return;const area=section('Vote');const q=context.question,v=context.vote,current=context.versions?.find(x=>x.id===q.currentVersionId);if(current)text(area,'Current wording',current.wording);text(area,'Ballot privacy',tr(q.ballotPrivacy));text(area,'Your vote',v.myChoice?tr(v.myChoice):null);text(area,'Votes cast',v.castCount);text(area,'Eligible members',v.eligibleCount);
+        if (!context.question) return;
+        const q = context.question, v = context.vote;
+        if (!v && q.phase !== 'closed') return;
+        const closed = q.phase === 'closed';
+        const area = section(closed ? 'Result' : 'Vote', closed ? 'result' : 'vote');
+        if (closed && q.outcome) text(area, 'Result', tr(q.outcome));
+        if (!v) return;
+        const current=context.versions?.find(x=>x.id===q.currentVersionId);if(current)text(area,'Current wording',current.wording);text(area,'Ballot privacy',tr(q.ballotPrivacy));text(area,'Your vote',v.myChoice?tr(v.myChoice):null);text(area,'Votes cast',v.castCount);text(area,'Eligible members',v.eligibleCount);
         if(v.countsAvailable)for(const [choice,count]of Object.entries(v.counts))text(area,tr(choice),count);else area.append(node('p',tr('Vote totals are not available in this phase.')));
         if(q.phase==='voting'&&v.isEligible&&v.myChoice===null&&current&&(q.kind==='decision'||(q.kind==='governance'&&q.governanceAmendmentId)))form(area,q.kind==='governance'?'governance.vote':'decision.vote','Cast vote',f=>{const options=[{value:'yes',label:'Yes'},{value:'no',label:'No'},...(q.allowAbstention?[{value:'abstain',label:'Abstain'}]:[])],choice=field(f,'Vote choice','select',options),placeholder=node('option',tr('Choose a vote option'));placeholder.value='';placeholder.disabled=true;placeholder.selected=true;choice.prepend(placeholder);choice.required=true;f.append(node('p',tr('Your confirmed vote cannot be changed.')));return()=>({...q.kind==='governance'?{amendmentId:q.governanceAmendmentId}:{decisionId:q.id},choice:choice.value});});
         else area.append(node('p',tr('Voting is unavailable for this account or phase.')));
     };
-    const render=()=>{pane.replaceChildren();pane.hidden=false;const back=node('button');back.type='button';back.append(ux.icon('arrow-left'),node('span',tr('Back to list')));back.addEventListener('click',()=>{clear();el('groups').focus();});pane.append(back);const hero=node('header');hero.className='deferendum-workspace-heading';const heading=node('h2',context.group.name);heading.tabIndex=-1;if(context.question){hero.append(ux.badge(context.question.phase));const current=context.versions?.find(v=>v.id===context.question.currentVersionId);if(current)heading.textContent=current.wording;if(context.question.phaseEndsAt)hero.append(ux.timer(context.question.phaseEndsAt));hero.append(heading,ux.phaseTrack(context.question.phase));}else hero.append(heading);if(!context.capabilities.commands.length)hero.append(node('p',tr('This workspace is read-only under the current permissions.')));pane.append(hero);if(context.question&&['voting','closed'].includes(context.question.phase)){ballot();discussion();wordings();governance();}else{issues();discussion();wordings();governance();ballot();}if(context.nextStep){const area=section('Next step');text(area,'Next step',context.nextStep.nextStep);text(area,'Saved status',tr(context.nextStep.status));text(area,'Responsibility',tr(context.nextStep.responsibility));}locks();ux.tick();if(!el('main-view').hidden)heading.focus();};
-    const read=async(location)=>{const current=++generation;context=null;selected=location;pane.replaceChildren(node('p',tr('Reading current source…')));pane.hidden=false;el('browser').hidden=true;
-        try{const path='groups/'+encodeURIComponent(location.groupId)+(location.decisionId?'/decisions/'+encodeURIComponent(location.decisionId):'')+'/context?language='+encodeURIComponent(language),result=await api(path);if(current!==generation)return;context=result.data;render();text(pane,'Read at',result.fetchedAt);}catch(error){if(current!==generation)return;context=null;pane.replaceChildren(node('p',reason(error.message)));const back=node('button',tr('Back to list'));back.type='button';back.addEventListener('click',()=>{clear();el('groups').focus();});const retry=node('button',tr('Refresh'));retry.type='button';retry.addEventListener('click',()=>read(location));pane.append(back,retry);}
+    const backToList = () => {
+        const previous = selected?.returnFocus;
+        clear();
+        (previous?.isConnected ? previous : el('groups')).focus();
     };
-    el('workspace').addEventListener('click',()=>{const groupId=el('groups').value;if(groupId)read({groupId});});
-    document.addEventListener('deferendum:decision',event=>read(event.detail));
+    const render = () => {
+        pane.replaceChildren();
+        pane.hidden = false;
+        const back = node('button');
+        back.type = 'button';
+        back.append(ux.icon('arrow-left'), node('span', tr('Back to list')));
+        back.addEventListener('click', backToList);
+        pane.append(back);
+
+        const q = context.question;
+        const implementing = q?.phase === 'closed' && q.outcome === 'passed' && !!context.nextStep;
+        const currentPhase = implementing ? 'adopted' : q?.phase;
+        const hero = node('header');
+        hero.className = 'deferendum-workspace-heading';
+        const heading = node('h2', context.group.name);
+        heading.tabIndex = -1;
+        if (q) {
+            const wording = context.versions?.find(v => v.id === q.currentVersionId)?.wording;
+            heading.textContent = q.sourceIssueTitle || wording || context.group.name;
+            const meta = node('div');
+            meta.className = 'deferendum-topic-meta';
+            meta.append(ux.badge(currentPhase, implementing ? 'Implementation' : currentPhase));
+            if (q.phaseEndsAt && ['framing', 'debate', 'voting'].includes(q.phase)) meta.append(ux.timer(q.phaseEndsAt));
+            const group = node('p', context.group.name);
+            group.className = 'deferendum-workspace-group';
+            hero.append(group, meta, heading);
+            if (wording && wording !== heading.textContent) hero.append(node('p', wording));
+        } else {
+            hero.append(heading);
+        }
+        if (!context.capabilities.commands.length) hero.append(node('p', tr('This workspace is read-only under the current permissions.')));
+        pane.append(hero);
+
+        if (q && ['voting', 'closed'].includes(q.phase)) {
+            ballot(); discussion(); wordings(); governance();
+        } else {
+            issues(); discussion(); wordings(); governance(); ballot();
+        }
+        if (context.nextStep) {
+            const area = section('Next step', 'next-step');
+            area.append(node('p', context.nextStep.nextStep));
+            text(area, 'Saved status', tr(context.nextStep.status));
+            text(area, 'Responsibility', tr(context.nextStep.responsibility));
+            if (context.nextStep.targetAt) text(area, 'Target date', new Date(context.nextStep.targetAt).toLocaleDateString());
+        }
+
+        const destinations = {};
+        if (q) {
+            for (const [stage, name] of Object.entries({concern: 'concerns', framing: 'wording', debate: 'discussion', voting: 'vote', closed: 'result', adopted: 'next-step'})) {
+                if (room(name)) destinations[stage] = roomId(name);
+            }
+            hero.append(ux.phaseTrack(currentPhase, destinations, visitRoom, q.kind === 'governance'));
+        }
+        locks();
+        ux.tick();
+        if (!el('main-view').hidden) {
+            if (selected?.issueId && (visitRoom(roomId('concern-' + selected.issueId)) || visitRoom(roomId('concerns')))) return;
+            const currentRoom = destinations[currentPhase];
+            if (selected?.directToStage && currentRoom && visitRoom(currentRoom)) return;
+            heading.focus();
+        }
+    };
+    const read=async(location)=>{const current=++generation;context=null;selected=location;pane.replaceChildren(node('p',tr('Reading current source…')));pane.hidden=false;el('browser').hidden=true;
+        try{const path='groups/'+encodeURIComponent(location.groupId)+(location.decisionId?'/decisions/'+encodeURIComponent(location.decisionId):'')+'/context?language='+encodeURIComponent(language),result=await api(path);if(current!==generation)return;context=result.data;render();text(pane,'Read at',result.fetchedAt);}catch(error){if(current!==generation)return;context=null;pane.replaceChildren(node('p',reason(error.message)));const back=node('button',tr('Back to list'));back.type='button';back.addEventListener('click',backToList);const retry=node('button',tr('Refresh'));retry.type='button';retry.addEventListener('click',()=>read(location));pane.append(back,retry);}
+    };
+    el('workspace').addEventListener('click',()=>{const groupId=el('groups').value;if(groupId)read({groupId,returnFocus:el('workspace')});});
+    document.addEventListener('deferendum:decision',event=>read({...event.detail,directToStage:true}));
+    document.addEventListener('deferendum:concern',event=>read(event.detail));
     document.addEventListener('deferendum:connection',event=>{connection=event.detail;locks();recoverPending();});
     document.addEventListener('deferendum:clear',clear);
     document.addEventListener('deferendum:settings',()=>{confirmationEpoch++;cancelPreview();});

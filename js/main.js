@@ -50,14 +50,38 @@
         if (current !== generation) return;
         const fragment = document.createDocumentFragment();
         for (const item of result.items) {
-            const li = document.createElement('li'), link = sourceLink(item.url, item.title); link.className = 'deferendum-topic-title'; li.append(link);
-            const meta = document.createElement('div'); meta.className = 'deferendum-topic-meta'; meta.append(ux.badge(item.phase)); if (item.deadline) meta.append(ux.timer(item.deadline)); li.append(meta);
-            if (kind === 'decision' && discussionEnabled) { const button=document.createElement('button'); button.append(ux.icon('arrow-right'), document.createTextNode(tr('Read decision workspace'))); button.addEventListener('click',()=>document.dispatchEvent(new CustomEvent('deferendum:decision',{detail:{groupId:group,decisionId:item.id}}))); li.append(button); }
+            const li = document.createElement('li');
+            const meta = document.createElement('div');
+            meta.className = 'deferendum-topic-meta';
+            meta.append(ux.badge(item.phase));
+            if (item.deadline) meta.append(ux.timer(item.deadline));
+            li.append(meta);
+            const link = sourceLink(item.url, item.title);
+            link.className = 'deferendum-topic-title';
+            li.append(link);
             if (kind === 'decision' && item.phase === 'closed') {
                 try { const step = await api('groups/' + encodeURIComponent(group) + '/decisions/' + encodeURIComponent(item.id) + '/next-step?language=' + encodeURIComponent(language));
                     if (current !== generation) return;
                     const next = document.createElement('p'); next.className = 'deferendum-next-step'; next.textContent = tr('Next step') + ': ' + step.nextStep + '\n' + tr('Saved status') + ': ' + tr(step.status) + ' · ' + tr('Responsibility') + ': ' + tr(step.responsibility) + ' · ' + tr('Target date') + ': ' + date(step.targetAt); li.append(next);
                 } catch (e) { if (e.message !== 'not_found') throw e; }
+            }
+            if (discussionEnabled && (kind === 'decision' || ['open', 'queued', 'qualified'].includes(item.phase))) {
+                const action = kind === 'decision'
+                    ? ({framing: 'Question wording', debate: 'Arguments and comments', voting: 'Vote', closed: 'Result'})[item.phase] ?? 'Read decision workspace'
+                    : 'Concern';
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'deferendum-topic-action';
+                button.setAttribute('aria-label', tr(action) + ' — ' + item.title);
+                button.append(document.createTextNode(tr(action)), ux.icon('arrow-right'));
+                button.addEventListener('click', () => {
+                    const location = {groupId: group, returnFocus: button};
+                    if (kind === 'decision') location.decisionId = item.id;
+                    else location.issueId = item.id;
+                    const name = kind === 'decision' ? 'deferendum:decision' : 'deferendum:concern';
+                    document.dispatchEvent(new CustomEvent(name, {detail: location}));
+                });
+                li.append(button);
             }
             fragment.append(li);
         }

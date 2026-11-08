@@ -6,9 +6,47 @@
     const node=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
     const paths={home:['M3 10 12 3l9 7','M5 9v12h5v-7h4v7h5V9'],groups:['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2','M16 3a4 4 0 0 1 0 8','M22 21v-2a4 4 0 0 0-3-3.87','M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0'],help:['M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4','M12 18h.01','M21 12a9 9 0 1 1-9-9'],settings:['M4 7h16','M4 17h16','M8 4v6','M16 14v6'],refresh:['M20 7v5h-5','M4 17v-5h5','M6 7a7 7 0 0 1 12-2l2 2','M18 17a7 7 0 0 1-12 2l-2-2'],filter:['M4 7h16','M4 17h16','M8 4v6','M16 14v6'],chevron:['m8 10 4 4 4-4'],close:['m6 6 12 12','m18 6-12 12'],shield:['M12 3 4 7v5c0 5 8 9 8 9s8-4 8-9V7l-8-4','m9 12 2 2 4-4'],chat:['M21 11a8 8 0 0 1-8 8H6l-4 3V11a9 9 0 0 1 18-2','M7 10h9','M7 14h6'],framing:['M8 3H3v5','M16 3h5v5','M3 16v5h5','M21 16v5h-5','M8 9h8','M8 14h5'],concern:['M9 21h6','M9 17h6','M12 3a7 7 0 0 0-4 13','M12 3a7 7 0 0 1 4 13','M12 7v5','M12 14h.01'],vote:['M4 13 2 20h20l-2-7','M7 13H4','M17 13h3','m9 3 8 5-5 8-8-5z','m8 9 2 2 4-3'],history:['M3 11a9 9 0 1 1 3 7','M3 4v7h7','M12 7v5l3 2'],implementation:['M4 5h16v15H4z','m8 11 3 3 5-6'],clock:['M21 12a9 9 0 1 1-9-9','M12 7v5l3 2'],sparkles:['m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z','M20 3v4','M18 5h4'],plus:['M12 5v14','M5 12h14'],heart:['M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8'],check:['m5 12 4 4L19 6'],'arrow-right':['M4 12h16','m14 6 6 6-6 6'],'arrow-left':['M20 12H4','m10 6-6 6 6 6']};
     const icon=name=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const [k,v]of Object.entries({viewBox:'0 0 24 24',width:'22',height:'22',fill:'none',stroke:'currentColor','stroke-width':'1.7','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false',class:'deferendum-icon'}))svg.setAttribute(k,v);for(const d of paths[name]||paths.help){const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',d);svg.append(p);}return svg;};
-    const phase=value=>{if(['open','queued','qualified','concern','issue'].includes(value))return{index:0,tone:'concern',icon:'concern'};if(value==='framing')return{index:1,tone:'framing',icon:'framing'};if(value==='debate')return{index:2,tone:'debate',icon:'chat'};if(value==='voting')return{index:3,tone:'voting',icon:'vote'};if(['adopted','implementing','completed'].includes(value))return{index:4,tone:'adopted',icon:'implementation'};return{index:4,tone:'closed',icon:'history'};};
-    const badge=value=>{const p=phase(value),b=node('span');b.className='deferendum-phase deferendum-phase-'+p.tone;b.append(icon(p.icon),node('span',tr(value)));return b;};
-    const phaseTrack=value=>{const p=phase(value),list=node('ol');list.className='deferendum-phase-track';list.setAttribute('aria-label',tr('Decision path'));['Concern','Framing','Debate','Vote','Result'].forEach((label,i)=>{const li=node('li');if(i===p.index)li.setAttribute('aria-current','step');li.className='deferendum-phase-step-'+i;li.append(node('span',String(i+1)),node('small',tr(label)));list.append(li);});return list;};
+    const stages = [
+        { tone: 'concern', icon: 'concern', label: 'Concern' },
+        { tone: 'framing', icon: 'framing', label: 'Framing' },
+        { tone: 'debate', icon: 'chat', label: 'Debate' },
+        { tone: 'voting', icon: 'vote', label: 'Vote' },
+        { tone: 'closed', icon: 'history', label: 'Result' },
+        { tone: 'adopted', icon: 'implementation', label: 'Implementation' },
+    ];
+    const phase = value => {
+        if (['open', 'queued', 'qualified', 'concern', 'issue'].includes(value)) return stages[0];
+        if (['adopted', 'implementing', 'completed'].includes(value)) return stages[5];
+        return stages.find(stage => stage.tone === value) ?? stages[4];
+    };
+    const badge=(value,label=value)=>{const p=phase(value),b=node('span');b.className='deferendum-phase deferendum-phase-'+p.tone;b.append(icon(p.icon),node('span',tr(label)));return b;};
+    const phaseTrack = (value, destinations = {}, visit = () => {}, governance = false) => {
+        const current = phase(value).tone;
+        const list = node('ol');
+        list.className = 'deferendum-phase-track';
+        list.setAttribute('aria-label', tr('Decision path'));
+        const visible = stages.slice(governance ? 2 : 0, current === 'adopted' ? 6 : 5);
+        for (const stage of visible) {
+            const item = node('li');
+            item.className = 'deferendum-phase-' + stage.tone;
+            const target = destinations[stage.tone];
+            const label = node(target ? 'button' : 'span');
+            label.className = 'deferendum-journey-step';
+            label.append(icon(stage.icon), node('span', tr(stage.label)));
+            if (target) {
+                label.type = 'button';
+                label.setAttribute('aria-controls', target);
+                label.addEventListener('click', () => visit(target));
+            }
+            if (current === stage.tone) {
+                item.setAttribute('aria-current', 'step');
+                label.append(node('small', tr('Current stage')));
+            }
+            item.append(label);
+            list.append(item);
+        }
+        return list;
+    };
     const disclosure=(label,content,name='chevron')=>{const details=node('details'),summary=node('summary');details.className='deferendum-disclosure';summary.append(icon(name),node('span',label),icon('chevron'));details.append(summary,content);return details;};
     const timer=value=>{const date=new Date(value),n=node('span');n.className='deferendum-countdown';n.setAttribute('aria-live','off');if(!Number.isFinite(date.getTime())){n.textContent=tr('Not recorded');return n;}n.dataset.deadline=date.toISOString();n.title=date.toLocaleString();return n;};
     const tick=()=>{if(document.hidden)return;for(const n of root.querySelectorAll('[data-deadline]')){const end=new Date(n.dataset.deadline).getTime(),left=Math.max(0,Math.ceil((end-Date.now())/1000)),parts=[Math.floor(left/86400),Math.floor(left/3600)%24,Math.floor(left/60)%60,left%60].map(x=>String(x).padStart(2,'0'));n.textContent=parts.join(':');n.setAttribute('aria-label',tr('Deadline')+': '+new Date(end).toLocaleString()+'. '+tr('Time remaining (days:hours:minutes:seconds)')+': '+parts.join(':'));}};
