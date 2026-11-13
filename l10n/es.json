@@ -260,7 +260,10 @@
     "Result": "Resultado",
     "Yes. Connect an existing Deferendum account from a compatible public HTTPS Nextcloud instance. Choose your groups and permissions explicitly. Installation alone never grants access to a group.": "Sí. Conecta una cuenta Deferendum existente desde una instancia Nextcloud compatible con HTTPS público. Elige explícitamente tus grupos y permisos. La instalación por sí sola nunca da acceso a un grupo.",
     "Implementation": "Implementación",
-    "Current stage": "Etapa actual"
+    "Current stage": "Etapa actual",
+    "Loading next step…": "Cargando el siguiente paso…",
+    "No next step is recorded.": "No hay un siguiente paso registrado.",
+    "The next step could not be loaded.": "No se pudo cargar el siguiente paso."
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }
