@@ -1,4 +1,4 @@
-# Deferendum for Nextcloud — 0.3.1
+# Deferendum for Nextcloud — 0.3.2
 
 A responsive workspace for selected Deferendum groups, with neutral surfaces that follow the Nextcloud theme and color-coded decision stages. Help combines a four-step tour, 20 searchable questions and feedback links. The Dashboard remains read-only.
 
@@ -6,13 +6,13 @@ Connect an existing Deferendum account from any compatible Nextcloud instance wi
 
 ## Update without losing the existing connection
 
-The app ID remains `deferendum`. An ordinary update from 0.2.4, 0.3.0-beta.1 or 0.3.0 preserves local registration, per-user connections, preferences and pending-operation metadata. This release adds no disable/uninstall repair hook or data migration. Do not uninstall or replace the registration as an update step. Retain a verified backup of the installed source, Nextcloud configuration, appconfig and per-user preferences before a live update, and use the standard Nextcloud app update mechanism.
+The app ID remains `deferendum`. An ordinary update from 0.2.4, 0.3.0-beta.1, 0.3.0 or 0.3.1 preserves local registration, per-user connections, preferences and pending-operation metadata. Use the standard Nextcloud app update mechanism after backing up the installed source, Nextcloud configuration, appconfig and per-user preferences.
 
 Withdrawing access and replacing an instance registration remain separate explicit user actions. The UI update does not expand an existing grant or silently reconnect a member.
 
 ## Interface
 
-Select a group and apply the active/history and content filters. Open the current stage from a decision card, or use the decision journey to move among the sections your account can read. An active concern card can open the corresponding item in the group workspace. The current stage and source capabilities determine the controls. Secondary forms expand on request. Voting keeps the exact wording and confirmation visible. When a countdown reaches zero, refresh to check the current phase.
+Select a group and apply the active/history and content filters. In history, expand **Next step** on a decision to fetch its implementation details. Open the current stage from a decision card, or use the decision journey to move among the sections your account can read. An active concern card can open the corresponding item in the group workspace. The current stage and source capabilities determine the controls. Secondary forms expand on request. Voting keeps the exact wording and confirmation visible. When a countdown reaches zero, refresh to check the current phase.
 
 The native Nextcloud app header and account remain under Nextcloud control. Scoped styles support its dark theme, keyboard focus and reduced-motion/transparency preferences. No new frontend framework, external font, tracking or remote asset dependency is introduced.
 

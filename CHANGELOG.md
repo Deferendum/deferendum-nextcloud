@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Open decision history immediately after the list is received. Expand **Next step** on a decision to read its implementation details.
+- Keep one request in flight when loading a page. Ignore results from a previous filter or group after changing views.
+- Keep authorized reading and participation behavior compatible with existing connections.
+
 ## 0.3.1
 
 - Open the current stage from a decision card and return focus to the same card when leaving the workspace. Active concern cards can open the corresponding concern in the group workspace.
