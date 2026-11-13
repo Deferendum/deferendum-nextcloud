@@ -8,16 +8,35 @@
     const language = (document.documentElement.lang || 'en').split(/[-_]/)[0];
     const ux = window.DeferendumUX; let activeFilter = { kind: 'decision', view: 'active' };
     let page = null; let generation = 0; let discussionEnabled = false; let settingsConnected = false; let userNavigated = false; let canWithdraw = false;
+    let topicRequest = null;
+    const previewRequests = new Set();
     const settings = open => { el('help-view').hidden = true; el('help-toggle').setAttribute('aria-expanded', 'false'); el('settings').hidden = !open; el('main-view').hidden = open; root.dataset.view = open ? 'settings' : 'main'; el('settings-toggle').setAttribute('aria-expanded', String(open)); if (open) document.dispatchEvent(new CustomEvent('deferendum:settings')); };
     const settingsState = connected => { if (!connected) settings(true); else if (!settingsConnected && !userNavigated) settings(false); settingsConnected = connected; };
-    const api = async (path, method = 'GET', body = undefined) => {
+    const api = async (path, method = 'GET', body = undefined, signal = undefined) => {
         const url = OC.generateUrl('/ocs/v2.php/apps/deferendum/api/' + path) + (path.includes('?') ? '&' : '?') + 'format=json';
-        const response = await fetch(url, {method, credentials: 'same-origin', cache: 'no-store', headers: {'Accept': 'application/json', 'OCS-APIRequest': 'true', 'requesttoken': OC.requestToken, ...(body ? {'Content-Type': 'application/json'} : {})}, ...(body ? {body: JSON.stringify(body)} : {})});
-        const json = await response.json(); const data = json.ocs?.data;
-        if (!response.ok || !data || data.error) throw new Error(data?.error || 'unavailable');
+        const response = await fetch(url, {method, signal, credentials: 'same-origin', cache: 'no-store', headers: {'Accept': 'application/json', 'OCS-APIRequest': 'true', 'requesttoken': OC.requestToken, ...(body ? {'Content-Type': 'application/json'} : {})}, ...(body ? {body: JSON.stringify(body)} : {})});
+        const json = await response.json().catch(() => null);
+        const data = json?.ocs?.data;
+        if (!response.ok || !data || data.error) {
+            const error = new Error(data?.error || 'unavailable');
+            error.status = response.status;
+            throw error;
+        }
         return data;
     };
-    const clear = () => { generation++; el('topics').replaceChildren(); el('fetched').textContent = ''; el('more').hidden = true; page = null; document.dispatchEvent(new CustomEvent('deferendum:clear')); };
+    const clear = () => {
+        generation++;
+        topicRequest?.abort();
+        topicRequest = null;
+        for (const request of previewRequests) request.abort();
+        previewRequests.clear();
+        el('topics').replaceChildren();
+        el('fetched').textContent = '';
+        el('more').hidden = true;
+        el('more').disabled = false;
+        page = null;
+        document.dispatchEvent(new CustomEvent('deferendum:clear'));
+    };
     const fail = () => { el('retry').hidden = false; clear(); discussionEnabled = false; el('workspace').hidden = true; el('groups').replaceChildren(); el('browser').hidden = true; el('connect').hidden = true; el('permission-label').hidden = true; el('permission-status').textContent = ''; if (el('registration')) el('registration').hidden = true; el('disconnect').hidden = !canWithdraw; el('refresh').hidden = false; settingsState(false); document.dispatchEvent(new CustomEvent('deferendum:connection', {detail:{connected:false,scopes:[],participationAvailable:false,canWithdraw}})); el('status').textContent = tr('Data unavailable. Previous content is not shown.'); };
     const run = fn => async () => { try { await fn(); } catch { fail(); } };
     const status = async () => {
@@ -41,13 +60,92 @@
         const a = document.createElement('a'); a.href = target.href; a.textContent = text; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
     };
     const date = value => value ? new Date(value).toLocaleString() : tr('Not recorded');
+
+    const nextStepPreview = (group, decisionId, viewGeneration) => {
+        const content = document.createElement('div');
+        content.className = 'deferendum-disclosure-body';
+        const statusLine = document.createElement('p');
+        statusLine.setAttribute('role', 'status');
+        const stepText = document.createElement('p');
+        stepText.className = 'deferendum-next-step';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = tr('Refresh');
+        retry.hidden = true;
+        content.append(statusLine, stepText, retry);
+        const details = ux.disclosure(tr('Next step'), content, 'implementation');
+        details.classList.add('deferendum-next-step-preview');
+        let request = null;
+
+        const read = async () => {
+            if (request || document.hidden || !details.open || !details.isConnected || viewGeneration !== generation) return;
+            const controller = new AbortController();
+            request = controller;
+            previewRequests.add(controller);
+            const isCurrent = () => !controller.signal.aborted && viewGeneration === generation && details.open && details.isConnected && !document.hidden;
+            statusLine.textContent = tr('Loading next step…');
+            stepText.textContent = '';
+            retry.hidden = true;
+            try {
+                const path = 'groups/' + encodeURIComponent(group) + '/decisions/' + encodeURIComponent(decisionId) + '/next-step?language=' + encodeURIComponent(language);
+                const step = await api(path, 'GET', undefined, controller.signal);
+                if (!isCurrent()) return;
+                statusLine.textContent = '';
+                stepText.textContent = `${step.nextStep}\n${tr('Saved status')}: ${tr(step.status)} · ${tr('Responsibility')}: ${tr(step.responsibility)} · ${tr('Target date')}: ${date(step.targetAt)}`;
+            } catch (error) {
+                if (!isCurrent()) return;
+                if (error.status === 401 || error.status === 403 || ['unauthorized', 'forbidden'].includes(error.message)) {
+                    fail();
+                    return;
+                }
+                const missing = error.status === 404 || error.message === 'not_found';
+                statusLine.textContent = tr(missing ? 'No next step is recorded.' : 'The next step could not be loaded.');
+                retry.hidden = missing;
+            } finally {
+                previewRequests.delete(controller);
+                if (request === controller) request = null;
+            }
+        };
+        retry.addEventListener('click', () => {
+            details.querySelector('summary').focus();
+            void read();
+        });
+        details.addEventListener('toggle', () => {
+            if (details.open) {
+                void read();
+                return;
+            }
+            request?.abort();
+            request = null;
+            statusLine.textContent = '';
+            stepText.textContent = '';
+            retry.hidden = true;
+        });
+        return details;
+    };
+
     const topics = async (append = false) => {
         if (!append) clear();
+        if (topicRequest) return;
         const current = generation; const group = el('groups').value; if (!group) return;
         const { kind, view } = activeFilter; const offset = append ? page : 0;
         if (offset === null) return;
-        const result = await api('groups/' + encodeURIComponent(group) + '/topics?' + new URLSearchParams({language, kind, view, offset, limit: 50}));
-        if (current !== generation) return;
+        const controller = new AbortController();
+        topicRequest = controller;
+        el('more').disabled = true;
+        let result;
+        try {
+            result = await api('groups/' + encodeURIComponent(group) + '/topics?' + new URLSearchParams({language, kind, view, offset, limit: 50}), 'GET', undefined, controller.signal);
+        } catch (error) {
+            if (controller.signal.aborted || current !== generation) return;
+            throw error;
+        } finally {
+            if (topicRequest === controller) {
+                topicRequest = null;
+                el('more').disabled = false;
+            }
+        }
+        if (current !== generation || document.hidden) return;
         const fragment = document.createDocumentFragment();
         for (const item of result.items) {
             const li = document.createElement('li');
@@ -59,12 +157,7 @@
             const link = sourceLink(item.url, item.title);
             link.className = 'deferendum-topic-title';
             li.append(link);
-            if (kind === 'decision' && item.phase === 'closed') {
-                try { const step = await api('groups/' + encodeURIComponent(group) + '/decisions/' + encodeURIComponent(item.id) + '/next-step?language=' + encodeURIComponent(language));
-                    if (current !== generation) return;
-                    const next = document.createElement('p'); next.className = 'deferendum-next-step'; next.textContent = tr('Next step') + ': ' + step.nextStep + '\n' + tr('Saved status') + ': ' + tr(step.status) + ' · ' + tr('Responsibility') + ': ' + tr(step.responsibility) + ' · ' + tr('Target date') + ': ' + date(step.targetAt); li.append(next);
-                } catch (e) { if (e.message !== 'not_found') throw e; }
-            }
+            if (kind === 'decision' && item.phase === 'closed') li.append(nextStepPreview(group, item.id, current));
             if (discussionEnabled && (kind === 'decision' || ['open', 'queued', 'qualified'].includes(item.phase))) {
                 const action = kind === 'decision'
                     ? ({framing: 'Question wording', debate: 'Arguments and comments', voting: 'Vote', closed: 'Result'})[item.phase] ?? 'Read decision workspace'
