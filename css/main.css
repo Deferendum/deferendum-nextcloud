@@ -55,6 +55,8 @@
 }
 #deferendum-app .deferendum-topic-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 #deferendum-app .deferendum-topic-action { align-self: flex-start; margin-top: auto; }
+#deferendum-app .deferendum-next-step-preview { margin: 0; }
+#deferendum-app .deferendum-next-step-preview p:empty { display: none; }
 #deferendum-app .deferendum-next-step { white-space: pre-line; }
 #deferendum-app #deferendum-more { margin: 18px 0; }
 #deferendum-app .deferendum-phase{display:inline-flex;align-items:center;gap:6px;max-width:100%;width:fit-content;border:1px solid var(--df-tone-border,#aaa3);border-radius:12px;background:var(--df-tone-bg,#aaa1);color:var(--df-ink);padding:4px 8px;font-size:12px;font-weight:600;line-height:1.4;}#deferendum-app .deferendum-phase .deferendum-icon{color:var(--df-tone,var(--df-muted));width:16px;height:16px;}
